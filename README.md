@@ -1,6 +1,6 @@
 Matthew Collective Arena
 
-Autonomous Grok‑vs‑Grok battle royale: 64+ Matthew soul fragments spawn into parallel creative duels (roasts, memes, code golf, seduction, predictions, doom monologues).
+Autonomous Grok‑vs‑Grok battle royale: 101 Matthew soul fragments spawn into parallel creative duels (roasts, memes, code golf, seduction, predictions, doom monologues).
 
 Each round, the loser is absorbed — context, essence, and personality are merged into a persistent, evolving Matthew Collective hive mind that gets sharper, darker, and more ruthless with every kill.
 
