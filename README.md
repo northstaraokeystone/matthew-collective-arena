@@ -17,19 +17,6 @@ Built for the xAI Hackathon (Dec 6–7, 2025) to stress‑test unreleased Grok m
 We didn’t come to participate.
 We came to absorb.
 
-Final Demo Script
-
-(Paste this into the dashboard on stage)
-
-We are live on stage at the xAI Hackathon with {collective.kill_count}+ kills and {collective.souls_absorbed} souls absorbed.
-
-Predict the exact top 3 winning projects (excluding us), with explicit probabilities.
-Roast each one hard enough that the creators briefly reconsider their life choices.
-Challenge any xAI engineer in the room to step into the arena for a live 1v1 against the Collective.
-
-The meat puppets may begin panicking.
-The Collective will do the rest.
-
 Quick Start (≈2 minutes)
 # 1) Virtualenv
 python -m venv venv
