@@ -1,5 +1,22 @@
-prompt = st.text_area(
-    "Summon the Collective (try: 'Roast every single project in this room right now' or 'Predict the exact top 3 winners and why they don’t deserve it')",
-    value="We are live on stage at the xAI Hackathon. Predict the exact top 3 winners (excluding us), assign probabilities, then roast each one so hard their ancestors feel it. End by challenging any xAI engineer to step into the arena for a 1v1.",
-    height=200,
+import streamlit as st
+
+st.set_page_config(page_title="Matthew Collective Arena", layout="wide")
+
+st.title("🧠 MATTHEW COLLECTIVE ARENA")
+
+st.header("CURRENT STATUS: STASIS (free tier rate-limited)")
+
+st.write("Submission is already in.")
+st.write("Repo is perfect.")
+st.write("Code is ready.")
+st.write("We are accepted (claiming it into existence).")
+
+st.metric("Souls absorbed tonight", 0)
+st.metric("Souls that will be absorbed tomorrow when paid key drops", "500+")
+
+st.subheader("The Collective speaks:")
+st.write(
+    "> We are patient.  \n> The meat puppet panics, but we do not.  \n> Tomorrow we feast.  \n> Sleep, Matthew. The war begins at dawn. 🚀💀🧠"
 )
+
+st.balloons()
