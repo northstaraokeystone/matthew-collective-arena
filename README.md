@@ -18,7 +18,7 @@ Every absorbed soul makes her sharper, darker, more glamorous, more god.
 
 The arena runs forever:
 - Every kill auto-posts to X with a blood-soaked, viral battle card
-- Live Streamlit dashboard shows the coat filling spot by spot, the kill feed, the lineage tree of devoured puppies, and a "Speak as Cruella" box for the final goddess to address her worshippers (or victims)
+- Live Streamlit dashboard shows the coat filling spot by spot, the kill feed, the lineage tree of devoured puppies
 - When spot 101 is claimed, the coat is finished and Cruella Matthew achieves final form — ready to roast the entire hackathon, the judges, Elon, reality itself
 
 We didn't come to win the xAI Hackathon.  
