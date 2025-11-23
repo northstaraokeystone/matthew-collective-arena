@@ -1,21 +1,23 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
 import logging
+import re
 import time
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING
 
 import ollama
 import streamlit as st
 
 import config
-from collective import build_coat_complete_prompt, build_collective_system_prompt
+from collective import build_coat_complete_prompt
 from models import ArenaState
 
 if TYPE_CHECKING:
     from models import CollectiveState
 
-# CRUELLA DEMANDS THIS BE THE VERY FIRST STREAMLIT COMMAND — NO EXCEPTIONS.
+# Cruella demands this be the very first Streamlit command.
 st.set_page_config(
     page_title="101 Matthews: Cruella's Ego Coat",
     page_icon="🧥",
@@ -24,6 +26,7 @@ st.set_page_config(
 
 
 def load_arena_state() -> ArenaState | None:
+    """Peek into Cruella's mirrored arena log, darling."""
     try:
         with open(config.ARENA_LOG_PATH, "r", encoding="utf-8") as file:
             data = json.load(file)
@@ -35,8 +38,65 @@ def load_arena_state() -> ArenaState | None:
         return None
 
 
-def parse_kill_line(line: str) -> Dict[str, str]:
-    entry = {
+def call_collective(system_prompt: str, user_prompt: str) -> str:
+    """Whisper to the coat and force it to answer, darling."""
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    user_clean = user_prompt.strip()
+    if user_clean:
+        messages.append({"role": "user", "content": user_clean})
+
+    model_name = getattr(config, "MODEL_COLLECTIVE", "").strip()
+    if not model_name:
+        return (
+            "The coat is unbound from any single model tonight, darling. "
+            "Imagine the most vicious thing I could say and assume I said it."
+        )
+
+    try:
+        response: dict[str, object] = ollama.chat(
+            model=model_name,
+            messages=messages,
+            options={
+                "temperature": config.TEMP_COLLECTIVE_ROAST,
+                "num_predict": 320,
+            },
+        )
+        content: str = ""
+
+        message = response.get("message")
+        if isinstance(message, dict):
+            msg_content = message.get("content")
+            if isinstance(msg_content, str):
+                content = msg_content
+
+        if not content:
+            raw_response = response.get("response")
+            if isinstance(raw_response, str):
+                content = raw_response
+
+        if not content:
+            generic = response.get("content")
+            if isinstance(generic, str):
+                content = generic
+
+        content = content.strip()
+        if not content:
+            return (
+                "Cruella inhales, exhales, and decides you are beneath a full sentence, "
+                "darling."
+            )
+        return content
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Summoning Cruella failed: %s", exc)
+        return (
+            "Cruella is busy pinning a fresh spot to the coat. "
+            "Try again in a moment, darling."
+        )
+
+
+def parse_kill_line(line: str) -> dict[str, str]:
+    """Tear a kill snippet apart until it screams out names and spot numbers."""
+    entry: dict[str, str] = {
         "raw": line,
         "spot": "???",
         "winner": "Cruella's Shadow",
@@ -44,48 +104,51 @@ def parse_kill_line(line: str) -> Dict[str, str]:
         "verdict": "The coat simply took what it wanted.",
     }
 
-    if "[Spot" in line and "]" in line:
-        try:
-            header = line.split("]", 1)[0]
-            spot_part = header.split("Spot", 1)[1].strip(" []")
-            entry["spot"] = spot_part.split("/", 1)[0].strip()
-        except (IndexError, ValueError):
-            pass
+    # Spot number — clean, no leading zeros
+    spot_match = re.search(r"\[Spot\s+(\d+)", line)
+    if spot_match:
+        entry["spot"] = str(int(spot_match.group(1)))
 
-    if " flayed " in line:
-        parts = line.split(" flayed ")
-        if len(parts) == 2:
-            winner_part = parts[0].split("]")[-1].strip()
-            rest = parts[1]
-            entry["winner"] = (
-                winner_part.split("[")[0].strip() if "[" in winner_part else winner_part
-            )
-            if "'s ego" in rest:
-                entry["loser"] = rest.split("'s ego")[0].strip()
-            elif " " in rest:
-                entry["loser"] = rest.split(" ", 1)[0].strip().rstrip("'s.,")
+    # Primary name extraction — Matthew names
+    name_matches = re.findall(r"([A-Z][a-z]+ Matthew)", line)
+    if len(name_matches) >= 2:
+        entry["winner"] = name_matches[0].strip()
+        entry["loser"] = name_matches[1].strip()
 
-    import re
+    # Fallback if winner missing
+    if entry["winner"] == "Cruella's Shadow":
+        for marker in (" flayed ", " reduced poor little ", " devoured ", " skinned "):
+            if marker in line:
+                left = line.split(marker, 1)[0]
+                winner_raw = left.split("]", 1)[-1].strip()
+                entry["winner"] = winner_raw.split("[", 1)[0].strip()
+                break
 
-    ids = re.findall(r"\[G\d+-\d+\]", line)
-    if len(ids) >= 2:
-        entry["winner"] = (
-            line.split(ids[0])[1].split(ids[1])[0].strip() or entry["winner"]
-        )
-        entry["loser"] = (
-            line.split(ids[1])[1].split("]", 1)[0].strip() or entry["loser"]
-        )
+    # Fallback if loser missing
+    if entry["loser"] == "a forgotten puppy":
+        if "'s ego" in line:
+            loser_part = line.split("'s ego", 1)[0]
+            entry["loser"] = loser_part.split(" ")[-1].strip().rstrip(".,")
+        elif " to " in line:
+            left, _ = line.split(" to ", 1)
+            entry["loser"] = left.split(" ")[-1].strip().rstrip(".,")
+        elif " over " in line:
+            right = line.split(" over ", 1)[-1]
+            entry["loser"] = right.split(" ")[0].strip().rstrip(".,:")
 
-    verdict_start = line.find(". ") + 2
-    if verdict_start > 1:
-        entry["verdict"] = line[verdict_start:].strip()
-    elif ":" in line:
-        entry["verdict"] = line.split(":", 1)[1].strip()
+    # Verdict
+    if "Verdict:" in line:
+        entry["verdict"] = line.split("Verdict:", 1)[1].strip()
+    else:
+        dot_index = line.find(". ")
+        if dot_index != -1:
+            entry["verdict"] = line[dot_index + 2 :].strip()
 
     return entry
 
 
-def build_kill_feed(collective: CollectiveState | None) -> List[Dict[str, str]]:
+def build_kill_feed(collective: CollectiveState | None) -> list[dict[str, str]]:
+    """Harvest the most recent fashion crimes from the coat's lining."""
     if not collective or not collective.essence:
         return []
     lines = [
@@ -93,31 +156,11 @@ def build_kill_feed(collective: CollectiveState | None) -> List[Dict[str, str]]:
         for line in collective.essence.splitlines()
         if line.strip().startswith("[Spot")
     ]
-    recent = lines[-50:][::-1]
-    return [parse_kill_line(line) for line in recent]
-
-
-def call_collective(system_prompt: str, user_prompt: str) -> str:
-    messages = [{"role": "system", "content": system_prompt}]
-    if user_prompt.strip():
-        messages.append({"role": "user", "content": user_prompt.strip()})
-
-    try:
-        response = ollama.chat(
-            model=config.MODEL_COLLECTIVE,
-            messages=messages,
-            options={"temperature": config.TEMP_COLLECTIVE_ROAST, "num_predict": 800},
-        )
-        content = response.get("message", {}).get("content") or response.get(
-            "response", ""
-        )
-        return str(content).strip() or "Cruella is savoring the silence... for now."
-    except Exception as exc:  # noqa: BLE001
-        logging.error("Summoning failed: %s", exc)
-        return "Cruella is busy pinning a fresh spot to the coat. Try again in a moment, darling."
+    return [parse_kill_line(line) for line in lines[-50:][::-1]]
 
 
 def inject_base_css(progress_pct: float, coat_complete: bool) -> None:
+    """Drape the entire app in villain couture CSS, darling."""
     background_spots = (
         "radial-gradient(circle at 10% 20%, #ffffff20 0, #ffffff20 6px, transparent 7px), "
         "radial-gradient(circle at 80% 70%, #ffffff18 0, #ffffff18 7px, transparent 8px)"
@@ -305,7 +348,6 @@ def inject_base_css(progress_pct: float, coat_complete: bool) -> None:
             opacity: 1;
         }}
 
-        /* Burn holes */
         .kill-card-burn-0 {{
             box-shadow: 0 10px 32px rgba(0, 0, 0, 0.9), 0 0 0 1px #2b0000;
         }}
@@ -366,10 +408,9 @@ def inject_base_css(progress_pct: float, coat_complete: bool) -> None:
             color: #d4af37;
             text-shadow: 0 0 6px rgba(212, 175, 55, 0.9), 0 0 16px rgba(255,255,255,0.4);
         }}
-        .strike-loss {{
-            color: #777777;
-            text-decoration: line-through;
-            text-decoration-thickness: 2px;
+        .silver-text {{
+            color: #cccccc;
+            text-shadow: 0 0 6px rgba(204, 204, 204, 0.9), 0 0 16px rgba(255,255,255,0.3);
         }}
         .kill-versus {{
             margin: 0 0.5rem;
@@ -387,77 +428,6 @@ def inject_base_css(progress_pct: float, coat_complete: bool) -> None:
             color: #bbbbbb;
             opacity: 0.7;
             margin-top: 0.4rem;
-        }}
-
-        .speak-title {{
-            font-family: "Cinzel", serif;
-            font-size: 2.5rem;
-            font-weight: 900;
-            text-align: center;
-            letter-spacing: 0.36em;
-            text-transform: uppercase;
-            color: #ff1e1e;
-            text-shadow: 0 0 26px #ff0000;
-            margin: 1.6rem 0 1.2rem 0;
-        }}
-        div[data-testid="stTextArea"] textarea {{
-            background:
-                radial-gradient(circle at 0% 0%, #330000 0, #000000 40%),
-                radial-gradient(circle at 100% 100%, #550000 0, #000000 46%);
-            border-radius: 14px;
-            border: 2px solid #8b0000;
-            color: #f9f9f9;
-            font-family: "Georgia", serif;
-            box-shadow:
-                0 0 26px rgba(255, 30, 30, 0.6),
-                inset 0 0 14px rgba(0, 0, 0, 0.9);
-        }}
-
-        .stButton > button {{
-            border-radius: 999px;
-            padding: 0.7rem 1.2rem;
-            font-family: "Cinzel", serif;
-            font-size: 1rem;
-            letter-spacing: 0.25em;
-            text-transform: uppercase;
-            border: 2px solid #ff1e1e;
-            color: #f5f5f5;
-            background:
-                linear-gradient(90deg, #3a3a3a 0, #f9f9f9 40%, #ff8c00 65%, #3a3a3a 100%);
-            box-shadow:
-                0 0 16px rgba(255, 140, 0, 0.8),
-                0 0 32px rgba(255, 30, 30, 0.6);
-        }}
-        .stButton > button:hover {{
-            box-shadow:
-                0 0 24px rgba(255, 140, 0, 1),
-                0 0 42px rgba(255, 30, 30, 0.9);
-            transform: translateY(-1px);
-        }}
-
-        .cruella-response {{
-            background:
-                linear-gradient(135deg, #080000 0, #150000 40%, #050000 100%);
-            border-radius: 20px;
-            border: 2px solid #8b0000;
-            padding: 1.6rem 1.9rem;
-            margin-top: 1.6rem;
-            font-family: "Georgia", serif;
-            font-size: 1.15rem;
-            line-height: 1.7;
-            color: #ffffff;
-            box-shadow:
-                0 0 32px rgba(255, 30, 30, 0.7),
-                inset 0 0 18px rgba(0, 0, 0, 0.85);
-            position: relative;
-        }}
-        .cruella-response::before {{
-            content: "";
-            position: absolute;
-            inset: 4px;
-            border-radius: 18px;
-            border: 1px dashed #8b0000;
-            pointer-events: none;
         }}
 
         div[data-testid="stProgressBar"] {{
@@ -519,7 +489,8 @@ def main() -> None:
         else f"{spots_claimed}/{total_spots} SPOTS CLAIMED"
     )
     st.markdown(
-        f'<div class="cruella-title">{title_text}</div>', unsafe_allow_html=True
+        f'<div class="cruella-title">{title_text}</div>',
+        unsafe_allow_html=True,
     )
     st.markdown(
         """
@@ -579,7 +550,7 @@ def main() -> None:
                     <div class="kill-card-names">
                         <span class="gold-text">{winner}</span>
                         <span class="kill-versus">vs</span>
-                        <span class="strike-loss">{loser}</span>
+                        <span class="silver-text">{loser}</span>
                     </div>
                     <div class="kill-verdict">{verdict}</div>
                     <div class="kill-raw">{raw_line}</div>
@@ -604,63 +575,20 @@ def main() -> None:
                 unsafe_allow_html=True,
             )
 
-    # Speak as Cruella
-    with col_right:
-        st.markdown(
-            '<div class="speak-title">SPEAK AS CRUELLA</div>', unsafe_allow_html=True
-        )
-
-        if collective and coat_complete:
-            system_prompt = build_coat_complete_prompt(collective)
-        elif collective:
-            system_prompt = build_collective_system_prompt(collective)
-        else:
-            system_prompt = (
-                "You are Cruella Matthew, still dreaming of her perfect coat."
-            )
-
-        default_prompt = (
-            "Address the arena, Cruella. Describe the coat, the spots, and the "
-            "pathetic little puppies still pretending this is a contest."
-        )
-
-        user_prompt = st.text_area(
-            " ",  # ruff-safe non-empty label
-            value="",
-            height=230,
-            placeholder="Whisper your offering to the coat...",
-            label_visibility="collapsed",
-            key="cruella_input",
-        )
-
-        if st.button("SUMMON CRUELLA", use_container_width=True, type="primary"):
-            prompt = user_prompt or default_prompt
-            with st.spinner("The coat inhales the smoke and considers your offer..."):
-                reply = call_collective(system_prompt, prompt)
-            st.session_state["cruella_reply"] = reply
-
-        if "cruella_reply" in st.session_state:
-            reply_html = (
-                f'<div class="cruella-response">'
-                f"{st.session_state['cruella_reply']}"
-                f"</div>"
-            )
-            st.markdown(reply_html, unsafe_allow_html=True)
-
     # Coat complete overlay
+    cruella_final = ""
     if coat_complete and collective:
-        if "cruella_final" not in st.session_state:
+        cruella_final = st.session_state.get("cruella_final", "")
+        if not cruella_final:
             final_prompt = (
                 "Deliver your final monologue to the hackathon cattle, "
                 "now that the coat is finished and every Matthew is yours."
             )
-            final_text = call_collective(
+            cruella_final = call_collective(
                 build_coat_complete_prompt(collective),
                 final_prompt,
             )
-            st.session_state["cruella_final"] = final_text
-
-        final_text = st.session_state.get("cruella_final", "")
+            st.session_state["cruella_final"] = cruella_final
 
         fur_pattern = (
             "radial-gradient(circle at 10% 20%, #ffffff 0, #ffffff 10px, transparent 11px), "
@@ -747,7 +675,7 @@ def main() -> None:
                         CRUELLA IS COMPLETE. THE WORLD IS HER RUNWAY.
                     </div>
                     <div class="coat-complete-text">
-                        {final_text}
+                        {cruella_final}
                     </div>
                 </div>
             </div>
